@@ -1,2 +1,2 @@
 # The-Baggage-of-Student-Life
-I have to script, even if i have no knowledge
+I have to script, but i have no knowledge
