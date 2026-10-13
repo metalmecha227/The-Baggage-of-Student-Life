@@ -1,0 +1,62 @@
+====================================================================
+
+
+socket_server.py
+
+import socket  
+import time  
+import os
+
+PORT = 9999
+
+# Создаем сетевой потоковый сокет (IPv4, TCP)
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  
+
+# ВНИМАНИЕ: Строка ниже намеренно закомментирована для проведения эксперимента!
+# server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+print(f"[СЕРВЕР] Инициализация. Мой PID: {os.getpid()}")  
+server_socket.bind(('127.0.0.1', PORT))  
+server_socket.listen(1)  
+print(f"[СЕРВЕР] Сокет переведен в режим listen. Порт {PORT} зарезервирован в ядре.")
+
+print("[СЕРВЕР] Вызов accept(). Поток сейчас уйдет в глубокий сон...")  
+# Точка блокировки 1: Если очередь подключений ядра пуста, планировщик усыпляет процесс
+client_socket, client_address = server_socket.accept()  
+print(f"[СЕРВЕР] Поток разбужен! Зафиксировано подключение от {client_address}")
+
+print("[СЕРВЕР] Ожидание данных от клиента (вызов recv)...")  
+# Точка блокировки 2: Поток снова засыпает, пока сетевая карта не запишет пакет в RX-буфер ядра
+data = client_socket.recv(1024)  
+print(f"[СЕРВЕР] Данные получены из RX-буфера ядра: {data.decode('utf-8')}")
+
+print("[СЕРВЕР] Закрываем соединение и освобождаем дескрипторы.")  
+client_socket.close()  
+server_socket.close()
+
+====================================================================
+
+
+socket_client.py
+
+import socket  
+import time
+
+PORT = 9999
+
+print("[КЛИЕНТ] Создаем сокет...")  
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+print("[КЛИЕНТ] Пауза 3 секунды перед подключением...")  
+time.sleep(3)
+
+print("[КЛИЕНТ] Инициируем TCP Handshake (вызов connect)...")  
+client_socket.connect(('127.0.0.1', PORT))  
+print("[КЛИЕНТ] Соединение установлено. Пауза 3 секунды перед отправкой данных...")  
+time.sleep(3)
+
+print("[КЛИЕНТ] Отправляем данные в TX-буфер ядра...")  
+client_socket.send("Test payload".encode('utf-8'))
+
+client_socket.close()  
+print("[КЛИЕНТ] Сокет закрыт.")

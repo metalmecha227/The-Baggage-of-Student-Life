@@ -1,0 +1,64 @@
+====================================================================
+
+
+CMDs:
+
+nc -l -p 8080
+
+nasm -f elf64 asm_client.asm -o asm_client.o
+
+ld asm_client.o -o asm_client
+
+./asm_client
+
+
+
+====================================================================
+
+
+nano asm_client.asm
+
+section .data
+    ; Структура sockaddr_in для подключения к 127.0.0.1:8080
+    sock_addr:
+        dw 2                    ; AF_INET (2 байта) -> 02 00
+        dw 0x901F               ; Порт 8080 в формате Big-Endian (0x1F90 перевернут)
+        dd 0x0100007F           ; IP 127.0.0.1 в формате Big-Endian (0x7F000001 перевернут)
+        dq 0                    ; 8 байт нулей (заглушка)
+    sock_addr_len equ $ - sock_addr
+
+    msg db "Hello from clean NASM assembly code!", 10
+    msg_len equ $ - msg
+
+section .text
+    global _start
+
+_start:
+    ; 1. СИСТЕМНЫЙ ВЫЗОВ: sys_socket (Создание структуры в ядре)
+    mov rax, 41         ; RAX = 41 (номер sys_socket)
+    mov rdi, 2          ; RDI = 2 (AF_INET)
+    mov rsi, 1          ; RSI = 1 (SOCK_STREAM)
+    mov rdx, 0          ; RDX = 0 (протокол по умолчанию)
+    syscall             ; Вызов ядра. Дескриптор сокета вернется в RAX.
+
+    ; Сохраняем полученный дескриптор сокета в регистр R12
+    mov r12, rax
+
+    ; 2. СИСТЕМНЫЙ ВЫЗОВ: sys_connect (Аппаратный TCP Handshake)
+    mov rax, 42         ; RAX = 42 (номер sys_connect)
+    mov rdi, r12        ; RDI = наш дескриптор сокета
+    mov rsi, sock_addr  ; RSI = указатель на структуру с IP и портом
+    mov rdx, sock_addr_len ; Размер структуры (16 байт)
+    syscall             ; Вызов ядра. Происходит физическое подключение.
+
+    ; 3. СИСТЕМНЫЙ ВЫЗОВ: sys_write (Отправка байт в сетевой буфер TX)
+    mov rax, 1          ; RAX = 1 (номер sys_write)
+    mov rdi, r12        ; Дескриптор сокета (куда писать)
+    mov rsi, msg        ; Адрес текстовой строки в ОЗУ
+    mov rdx, msg_len    ; Длина строки в байтах
+    syscall             ; Вызов ядра. Отправка данных в провод.
+
+    ; 4. СИСТЕМНЫЙ ВЫЗОВ: sys_exit (Корректное завершение процесса)
+    mov rax, 60         ; RAX = 60 (номер sys_exit)
+    xor rdi, rdi        ; Код возврата 0
+    syscall
